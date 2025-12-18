@@ -139,10 +139,17 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
                 ({ start: startId, range, content, author }) => {
                     const url = `${BASE_URL}${href}?lang=${language}&id=${range}#${startId}`;
                     
-                    // UPDATED: Pass the bidirectionalLinks setting
+                    // Force 'true' to always generate links
                     const callout = toCalloutString(
-                        { url, title, author, content, year, month },
-                        this.plugin.settings.bidirectionalLinks 
+                        {
+                            url,
+                            title,
+                            author,
+                            content,
+                            year,
+                            month,
+                        },
+                        true // <--- ALWAYS TRUE
                     );
 
                     editor.replaceRange(callout, start, end);

@@ -1,115 +1,99 @@
-import {
-    Editor,
-    EditorPosition,
-    EditorSuggest,
-    EditorSuggestContext,
-    EditorSuggestTriggerInfo,
-    TFile,
-} from "obsidian";
-import LdsLibraryPlugin from "@/LdsLibraryPlugin";
-import { isAvailableLanguage } from "@/lang";
-import { VerseSuggestion } from "./VerseSuggestion";
+import { AvailableLanguage } from "@/lang";
+import { bookData } from "@/utils/config";
+import { fetchScripture } from "@/utils/scripture";
 
-const FULL_VERSE_REG =
-    /^:(?:\[(\w{3})\]\s+)?([123]*[A-z ]{3,}) (\d{1,3})(?:\s+|:)(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*):$/i;
+export class VerseSuggestion {
+    public text: string;
+    public previewText: string;
+    private bookTitleInLanguage: string;
+    private verseIds: string;
+    private url: string;
 
-export class VerseSuggester extends EditorSuggest<VerseSuggestion> {
-    constructor(public plugin: LdsLibraryPlugin) {
-        super(plugin.app);
+    private constructor(
+        public book: string,
+        public chapter: number,
+        public verseString: string,
+        public lang: AvailableLanguage,
+    ) {
+        this.verseIds = verseString
+            .split(",")
+            .map((range) =>
+                range.split("-").map((verse) => `p${verse}`).join("-"),
+            )
+            .join(",");
     }
 
-    onTrigger(
-        cursor: EditorPosition,
-        editor: Editor,
-        _: TFile | null,
-    ): EditorSuggestTriggerInfo | null {
-        const currentContent = editor
-            .getLine(cursor.line)
-            .substring(0, cursor.ch);
-        const match = currentContent.match(FULL_VERSE_REG)?.[0];
-
-        if (!match) return null;
-
-        return {
-            start: {
-                line: cursor.line,
-                ch: currentContent.lastIndexOf(match),
-            },
-            end: cursor,
-            query: match,
-        };
+    static async create(
+        book: string,
+        chapter: number,
+        verseString: string,
+        lang: AvailableLanguage,
+    ) {
+        const suggestion = new VerseSuggestion(book, chapter, verseString, lang);
+        await suggestion.loadVerse();
+        return suggestion;
     }
 
-    async getSuggestions(
-        context: EditorSuggestContext,
-    ): Promise<VerseSuggestion[]> {
-        const { language: preferredLanguage } = this.plugin.settings;
-        const { query } = context;
+    // UPDATED: Now accepts createLink boolean
+    public getReplacement(createLink = false): string {
+        const range = this.verseString.replaceAll(",", ", ");
+        
+        // Base content
+        const lines = [
+            `> [!ldslib] [${this.bookTitleInLanguage}:${range}](${this.url})`,
+            this.text
+        ];
 
-        const fullMatch = query.match(FULL_VERSE_REG);
-
-        if (fullMatch === null) return [];
-
-        const language = fullMatch[1] ?? preferredLanguage;
-        if (!isAvailableLanguage(language))
-            throw new Error(`${language} is not a valid language option`);
-
-        const book = fullMatch[2];
-        const chapter = Number(fullMatch[3]);
-        const verseString = fullMatch[4];
-
-        const suggestion = await VerseSuggestion.create(
-            book,
-            chapter,
-            verseString,
-            language,
-        );
-        return [suggestion];
-    }
-
-    renderSuggestion(suggestion: VerseSuggestion, el: HTMLElement): void {
-        suggestion.render(el);
-    }
-
-    selectSuggestion(
-        suggestion: VerseSuggestion,
-        _: MouseEvent | KeyboardEvent,
-    ): void {
-        if (!this.context) return;
-
-        this.context.editor.replaceRange(
-            suggestion.getReplacement(),
-            this.context.start,
-            this.context.end,
-        );
-    }
-
-    expandRange(range: string): number[] {
-        const [s, e] = range.split("-");
-
-        let start = Number(s.trim());
-        let end = Number(e.trim());
-
-        const result = [];
-
-        for (let i = start; i <= end; i++) {
-            result.push(i);
+        // NEW LOGIC: Add the connection block
+        if (createLink) {
+            lines.push(">"); // Spacer line
+            // Create a consistent Wikilink: [[1 Nephi 3:7]]
+            const link = `[[${this.bookTitleInLanguage} ${this.chapter}:${this.verseString}]]`;
+            
+            // Add the formatted metadata section
+            lines.push(`> **Link**: ${link}`);
+            lines.push(`> **Tags**: #scripture`);
+            lines.push(`> **Topic**: [[ ]]`);
         }
-        return result;
+
+        lines.push(""); // Trailing newline
+        return lines.join("\n");
     }
 
-    parseVerses(input: string): number[] {
-        const items = input.split(",");
-        let result: number[] = [];
+    private getUrl(volumeTitleShort: string, bookTitleShort: string): string {
+        return `https://www.churchofjesuschrist.org/study/scriptures/${volumeTitleShort}/${bookTitleShort}/${this.chapter}?lang=${this.lang}&id=${this.verseIds}`;
+    }
 
-        for (const item of items) {
-            if (item.includes("-")) {
-                result = result.concat(this.expandRange(item));
-            } else {
-                result.push(Number(item));
+    private getShortenedName(bookTitle: string) {
+        for (const [name, info] of Object.entries(bookData)) {
+            if (info.names.some((name) => name.toLowerCase() === bookTitle.toLowerCase())) {
+                const volume = info.volume;
+                return [name, volume];
             }
         }
-        const uniqueArray = Array.from(new Set(result));
-        return uniqueArray;
+        return ["", ""];
+    }
+
+    private async loadVerse(): Promise<void> {
+        const [bookTitleShort, volumeTitleShort] = this.getShortenedName(this.book);
+        if (bookTitleShort === "" || volumeTitleShort === "")
+            throw new Error(`Couldn't find book name ${this.book}`);
+
+        this.url = this.getUrl(volumeTitleShort, bookTitleShort);
+        const scriptureData = await fetchScripture(this.url);
+        this.bookTitleInLanguage = scriptureData.nativeBookTitle;
+        const verses = scriptureData.verses.map((_verse) => {
+            const [_, verseNumber, text] = _verse.match(/^(\d+)\s*(.*)$/) ?? [null, "0", ""];
+            const verse = Number(verseNumber);
+            return { volumeTitleShort, bookTitleShort, chapter: this.chapter, verse, text };
+        });
+
+        this.text = verses.map(({ verse, text }) => `> ${verse} ${text}`).join("\n");
+        this.previewText = verses.map(({ verse, text }) => `${verse} ${text}`).join("\n");
+    }
+
+    public render(el: HTMLElement): void {
+        const outer = el.createDiv({ cls: "obr-suggester-container" });
+        outer.createDiv({ cls: "obr-shortcode" }).setText(this.previewText);
     }
 }

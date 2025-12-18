@@ -77,10 +77,8 @@ selectSuggestion(
     ): void {
         if (!this.context) return;
 
-        // UPDATED: Pass the setting to getReplacement
-        const replacement = suggestion.getReplacement(
-            this.plugin.settings.bidirectionalLinks
-        );
+        // Force 'true' to always generate links
+        const replacement = suggestion.getReplacement(true);
 
         this.context.editor.replaceRange(
             replacement,

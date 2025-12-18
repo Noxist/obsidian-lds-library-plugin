@@ -71,14 +71,19 @@ export class VerseSuggester extends EditorSuggest<VerseSuggestion> {
         suggestion.render(el);
     }
 
-    selectSuggestion(
+selectSuggestion(
         suggestion: VerseSuggestion,
         _: MouseEvent | KeyboardEvent,
     ): void {
         if (!this.context) return;
 
+        // UPDATED: Pass the setting to getReplacement
+        const replacement = suggestion.getReplacement(
+            this.plugin.settings.bidirectionalLinks
+        );
+
         this.context.editor.replaceRange(
-            suggestion.getReplacement(),
+            replacement,
             this.context.start,
             this.context.end,
         );

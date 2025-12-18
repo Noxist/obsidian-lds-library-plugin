@@ -9,5 +9,5 @@ export interface LdsLibrarySettings {
 export const DEFAULT_SETTINGS: LdsLibrarySettings = {
     language: "eng",
     createChapterLink: false,
-    bidirectionalLinks: false,
+    bidirectionalLinks: true, // <--- CHANGED TO TRUE
 };

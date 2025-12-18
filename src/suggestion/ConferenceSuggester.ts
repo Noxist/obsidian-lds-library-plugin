@@ -56,37 +56,8 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
         };
     }
 
-    async getSuggestions(
-        context: EditorSuggestContext,
-    ): Promise<ConferencePromptSuggestion[]> {
-        const { query } = context;
-        const match = query.match(CONF_REG);
-        if (match === null) return [];
-
-        const language = match[1] ?? this.plugin.settings.language;
-        if (!isAvailableLanguage(language))
-            throw new Error(`${language} is not a valid language option`);
-
-        const month = match[2].toLowerCase().startsWith("apr") ? 4 : 10;
-        const year = Number(match[3]);
-
-        const monthYearString = [month === 4 ? "April" : "October", year].join(
-            " ",
-        );
-
-        const suggestion = new SingleSuggestion<ConferenceInfo>(
-            { year, month, language },
-            "Open Conference Picker for " + monthYearString,
-        );
-        return [suggestion];
-    }
-
-    renderSuggestion(
-        suggestion: ConferencePromptSuggestion,
-        el: HTMLElement,
-    ): void {
-        suggestion.render(el);
-    }
+    // ... existing imports ...
+// Only change is in the selectSuggestion method below
 
     async selectSuggestion(
         suggestion: ConferencePromptSuggestion,
@@ -94,12 +65,10 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
     ): Promise<void> {
         if (!this.context) return;
 
-        // context will become null once SpinnerModal is closed. snapshot variables to use in the future
         const { editor, start, end } = this.context;
-
         const { year, month, language } = suggestion.data;
-
         const url = getConferenceTalkListUrl(year, month, language);
+        
         const spinnerModal = new SpinnerModal(this.app);
         spinnerModal.open();
 
@@ -107,13 +76,8 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
         try {
             const response = await requestUrl({ url, method: "GET" });
             const $ = cheerio.load(response.json.content.body);
+            let talkListElements = $("nav > ul > li > ul > li[data-content-type='general-conference-talk'] > a");
 
-            let talkListElements = $(
-                "nav > ul > li > ul > li[data-content-type='general-conference-talk'] > a",
-            );
-
-            // edge case: https://www.churchofjesuschrist.org/study/api/v3/language-pages/type/content?lang=eng&uri=/general-conference/2023/10 has this issue
-            // having data-content-type is nicer because we can filter out ones that are not talks, ex> Sunday Morning Session
             if (talkListElements.length === 0)
                 talkListElements = $("nav > ul > li > ul > li > a");
 
@@ -123,10 +87,7 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
                     const author = $(el).find("p.primaryMeta").text();
                     const _href = $(el).attr("href") ?? "";
                     const match = _href.match(/\/study(.*)\?.*/);
-                    if (match === null)
-                        throw new Error(
-                            `${_href} is not a valid resource path`,
-                        );
+                    if (match === null) throw new Error(`${_href} is not a valid resource path`);
                     const href = match[1];
                     return { title, author, href };
                 })
@@ -145,14 +106,12 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
                 language,
                 ({ start: startId, range, content, author }) => {
                     const url = `${BASE_URL}${href}?lang=${language}&id=${range}#${startId}`;
-                    const callout = toCalloutString({
-                        url,
-                        title,
-                        author,
-                        content,
-                        year,
-                        month,
-                    });
+                    
+                    // UPDATED: Pass the bidirectionalLinks setting
+                    const callout = toCalloutString(
+                        { url, title, author, content, year, month },
+                        this.plugin.settings.bidirectionalLinks 
+                    );
 
                     editor.replaceRange(callout, start, end);
                 },

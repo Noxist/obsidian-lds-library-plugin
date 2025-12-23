@@ -1,3 +1,4 @@
+// ... (imports remain the same)
 import {
     Editor,
     EditorPosition,
@@ -18,6 +19,7 @@ export class VerseSuggester extends EditorSuggest<VerseSuggestion> {
         super(plugin.app);
     }
 
+    // ... (onTrigger and getSuggestions remain the same) ...
     onTrigger(
         cursor: EditorPosition,
         editor: Editor,
@@ -71,13 +73,14 @@ export class VerseSuggester extends EditorSuggest<VerseSuggestion> {
         suggestion.render(el);
     }
 
-selectSuggestion(
+    // --- CHANGED: selectSuggestion to force link creation ---
+    selectSuggestion(
         suggestion: VerseSuggestion,
         _: MouseEvent | KeyboardEvent,
     ): void {
         if (!this.context) return;
 
-        // Force 'true' to always generate links
+        // Force 'true' to generate the [[Link]] footer
         const replacement = suggestion.getReplacement(true);
 
         this.context.editor.replaceRange(
@@ -87,6 +90,7 @@ selectSuggestion(
         );
     }
 
+    // ... (expandRange and parseVerses remain the same) ...
     expandRange(range: string): number[] {
         const [s, e] = range.split("-");
 

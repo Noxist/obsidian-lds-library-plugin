@@ -20,12 +20,15 @@ import { SingleSuggestion } from "./SingleSuggestion";
 
 const CONF_REG =
     /^:(?:\[(\w{3})\]\s+)?([aA]pril|[oO]ctober|[aA]pr|[oO]ct)\s+(\d{4}):$/;
+
 type ConferenceInfo = {
     year: number;
     month: 4 | 10;
     language: AvailableLanguage;
 };
+
 type ConferencePromptSuggestion = SingleSuggestion<ConferenceInfo>;
+
 export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestion> {
     public app: App;
 
@@ -63,7 +66,7 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
         const match = query.match(CONF_REG);
         if (match === null) return [];
 
-        const language = match[1] ?? this.plugin.settings.language;
+        const language = (match[1] as AvailableLanguage) ?? this.plugin.settings.language;
         if (!isAvailableLanguage(language))
             throw new Error(`${language} is not a valid language option`);
 
@@ -87,16 +90,6 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
     ): void {
         suggestion.render(el);
     }
-
-   // ... existing imports ...
-// Only change is in the selectSuggestion method below
-
-// ... (Previous imports remain same) ...
-// Only the selectSuggestion method needs changing. 
-// I will show the snippet for that method to save space, 
-// as the rest of the file is unchanged.
-
-// Find the selectSuggestion method inside the ConferenceSuggester class:
 
     async selectSuggestion(
         suggestion: ConferencePromptSuggestion,
@@ -146,7 +139,8 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
                 ({ start: startId, range, content, author }) => {
                     const url = `${BASE_URL}${href}?lang=${language}&id=${range}#${startId}`;
                     
-                    // --- CHANGED: Passed 'true' as the second argument ---
+                    // Hier wird 'true' übergeben, um die automatische Verlinkung 
+                    // für das Graph-Netzwerk zu aktivieren
                     const callout = toCalloutString(
                         {
                             url,
@@ -156,7 +150,7 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
                             year,
                             month,
                         },
-                        true // <--- THIS IS THE KEY CHANGE
+                        true 
                     );
 
                     editor.replaceRange(callout, start, end);
@@ -164,3 +158,4 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
             ).open();
         }).open();
     }
+}

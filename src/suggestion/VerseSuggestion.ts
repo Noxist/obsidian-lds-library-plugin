@@ -34,26 +34,27 @@ export class VerseSuggestion {
         return suggestion;
     }
 
-    // UPDATED: Now accepts createLink boolean
-    public getReplacement(createLink = false): string {
+    // --- CHANGED: Added createLink parameter (defaults to true) ---
+    public getReplacement(createLink = true): string {
         const range = this.verseString.replaceAll(",", ", ");
         
-        // Base content
+        // 1. The Quote Block Header
         const lines = [
             `> [!ldslib] [${this.bookTitleInLanguage}:${range}](${this.url})`,
             this.text
         ];
 
-        // NEW LOGIC: Add the connection block
+        // 2. The Connection Footer (The "Hub" Logic)
         if (createLink) {
-            lines.push(">"); // Spacer line
-            // Create a consistent Wikilink: [[1 Nephi 3:7]]
+            lines.push(">"); // Spacer
+            
+            // Create the Hub Link: [[1 Nephi 3:7]]
+            // Note: If you use Windows, you might prefer `${this.chapter}.${this.verseString}` 
             const link = `[[${this.bookTitleInLanguage} ${this.chapter}:${this.verseString}]]`;
             
-            // Add the formatted metadata section
             lines.push(`> **Link**: ${link}`);
             lines.push(`> **Tags**: #scripture`);
-            lines.push(`> **Topic**: [[ ]]`);
+            lines.push(`> **Topic**: [[ ]]`); 
         }
 
         lines.push(""); // Trailing newline

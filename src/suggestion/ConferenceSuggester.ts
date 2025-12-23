@@ -91,6 +91,13 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
    // ... existing imports ...
 // Only change is in the selectSuggestion method below
 
+// ... (Previous imports remain same) ...
+// Only the selectSuggestion method needs changing. 
+// I will show the snippet for that method to save space, 
+// as the rest of the file is unchanged.
+
+// Find the selectSuggestion method inside the ConferenceSuggester class:
+
     async selectSuggestion(
         suggestion: ConferencePromptSuggestion,
         _evt: MouseEvent | KeyboardEvent,
@@ -139,7 +146,7 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
                 ({ start: startId, range, content, author }) => {
                     const url = `${BASE_URL}${href}?lang=${language}&id=${range}#${startId}`;
                     
-                    // Force 'true' to always generate links
+                    // --- CHANGED: Passed 'true' as the second argument ---
                     const callout = toCalloutString(
                         {
                             url,
@@ -149,7 +156,7 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
                             year,
                             month,
                         },
-                        true // <--- ALWAYS TRUE
+                        true // <--- THIS IS THE KEY CHANGE
                     );
 
                     editor.replaceRange(callout, start, end);
@@ -157,4 +164,3 @@ export class ConferenceSuggester extends EditorSuggest<ConferencePromptSuggestio
             ).open();
         }).open();
     }
-}
